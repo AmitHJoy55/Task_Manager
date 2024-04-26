@@ -24,6 +24,14 @@ function generateTaskId() {
     //If the task length is grater than 0 then it will just add 1 with the last task id as task id for the lastest task added 
 }
 
+// Middleware to validate task data
+function validateTaskData(req, res, next) {
+    const { title, description, status } = req.body;
+    if (!title || !description || !status) {
+        return res.status(400).json({ message: 'Title, description, and status are required' });
+    }
+    next();
+}
 
 // Get all tasks from task.json file
 app.get('/tasks', (req, res) => {
@@ -32,7 +40,7 @@ app.get('/tasks', (req, res) => {
 });
 
 // Create a task
-app.post('/addtask', (req, res) => {
+app.post('/addtask', validateTaskData, (req, res) => {
     const { title, description, status } = req.body;
     const newTask = {
         id: generateTaskId(),
@@ -44,6 +52,21 @@ app.post('/addtask', (req, res) => {
     tasks.push(newTask);
     writeTasks(tasks);
     res.status(201).json(newTask);
+});
+
+// Update a task
+app.put('/tasks/:id', validateTaskData, (req, res) => {
+    const taskId = parseInt(req.params.id);
+    const { title, description, status } = req.body;
+    const tasks = readTasks();
+    const taskIndex = tasks.findIndex(task => task.id === taskId);
+    if (taskIndex !== -1) {
+        tasks[taskIndex] = { ...tasks[taskIndex], title, description, status };
+        writeTasks(tasks);
+        res.json(tasks[taskIndex]);
+    } else {
+        res.status(404).json({ message: 'Task not found!' });
+    }
 });
 
 
