@@ -96,6 +96,32 @@ app.delete('/tasks/:id', (req, res) => {
     res.status(204).end();
 });
 
+//Sort By ID
+app.get('/tasks/sortById', (req, res) => {
+    const tasks = readTasks();
+    const sortedTasks = tasks.sort((a, b) => a.id - b.id);
+    res.json(sortedTasks);
+});
+
+// Sort By Status where we ranked Todo=1 ,In Progress=2, Completed=3 
+app.get('/tasks/sortByStatus', (req, res) => {
+    const tasks = readTasks();
+    const statusMap = { 'Todo': 1, 'In Progress': 2, 'Completed': 3 };
+
+    try{
+        const sortedTasks = tasks.sort((a, b) => {
+            const statusA = statusMap[a.status] || 0; 
+            const statusB = statusMap[b.status] || 0; 
+            return statusA - statusB;
+        });
+        res.json(sortedTasks);
+    }catch (error) {
+        res.status(404).json({ message: 'Task not found' });
+    }
+    
+});
+
+
 // Start the server
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
