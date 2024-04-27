@@ -68,7 +68,33 @@ app.put('/tasks/:id', validateTaskData, (req, res) => {
         res.status(404).json({ message: 'Task not found!' });
     }
 });
+// Patch Request for updating a task while giving any of the para-meter 
+app.patch('/tasks/:id',  (req, res) => {
+    const taskId = parseInt(req.params.id);
+    const tasks = readTasks();
+    const taskIndex = tasks.findIndex(task => task.id === taskId);
+    const updates = req.body;
+    try {
+      if (taskIndex !== -1) {    
+        tasks[taskIndex] = { ...tasks[taskIndex], ...updates };    
+        fs.writeFileSync('tasks.json', JSON.stringify(tasks, null, 2));    
+        res.status(200).json(tasks);
+      } else {
+        res.status(404).json({ message: 'Task not found' });
+      }
+    } catch (error) {
+      res.status(404).json({ message: "Task didn't updated" });
+    }  
+});
 
+// Delete a task
+app.delete('/tasks/:id', (req, res) => {
+    const taskId = parseInt(req.params.id);
+    let tasks = readTasks();
+    tasks = tasks.filter(task => task.id !== taskId);
+    writeTasks(tasks);
+    res.status(204).end();
+});
 
 // Start the server
 app.listen(PORT, () => {
