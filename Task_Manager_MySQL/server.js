@@ -7,28 +7,72 @@ const app = express();
 
 app.use(express.json());
 
+function generateAccessToken(user) {
+    return jwt.sign(user, process.env.ACCESS_TOKEN);
+}
 
-app.get('/users', (req, res) => {
-    const sqlSelect = "SELECT * FROM users";
-    connection.query(sqlSelect, (err, result) => {
+function authenticateToken(req, res, next) {
+    const authHeader = req.headers['authorization']
+    let token = authHeader && authHeader.split(' ')[1]    
+    
+    if (token === null ) {
+        return res.sendStatus(401)
+    }    
+    jwt.verify(token, process.env.ACCESS_TOKEN, (err, user) => {
+        if (err) return res.sendStatus("Error occured! \n",403)            
+        req.user = user
+        next()
+    })
+} // Token Authentication function  
+
+
+app.get('/users',authenticateToken , (req, res) => {
+
+    if (req.user.role === "admin") {
+        const sqlSelect = "SELECT * FROM users";
+        connection.query(sqlSelect, (err, result) => {
+            res.send(result);
+        });
+    }
+    else {
+        res.send("Only admin can see the user list");
+    }
+}); //Get all the user profile  if user role is admin .
+
+app.get('/user/profile', authenticateToken, (req, res) => {
+    const username = req.user.username;
+    const selectsql = "SELECT * FROM users WHERE username = '" + username + "';";
+    connection.query(selectsql, (err, result) => {
         res.send(result);
-    });
-}); //Get all user 
+    })
+}) // Get user profile .
 
-app.post('/users',async(req, res) => {
-    const salt = 10;
-    const hashedpass = await bcrypt.hash(req.body.password, salt);
+app.post('/users/register',async(req, res) => {
     try {
         const username = req.body.username;
         const email = req.body.email;
-        const role = req.body.role;
-        const sqlInsert = "INSERT INTO users VALUES ('"+username+"','"+email+"','"+hashedpass+"' ,'"+`${role}`+"');";
+        const password = req.body.password;
+        const role = req.body.role
+        if ((username == null) || (email == null) || (password == null)) {
+            res.send('username, email and password is required!');
+            return;
+        }
+        sqlSelect = "SELECT * FROM users WHERE email = '" + email + "';";
+        connection.query(sqlSelect, (err, result) => {
+            if (result.length > 0) {
+                res.send("Email already exists!");
+                return;
+            }
+        }); //Checking whether anyone try to create multiple user using same email
+        const salt = 10;
+        const hashedpass = await bcrypt.hash(req.body.password, salt);
+        const sqlInsert = "INSERT INTO users (username,email,password,role) VALUES ('"+username+"','"+email+"','"+hashedpass+"' ,'"+role+"');";
         connection.query(sqlInsert, (err, result) => {
-            res.send(result);
+            res.status(200).send(result);
         });} catch (error) {
         res.status(500).send(error);
     }
-}); // Create a new user 
+}); // Create a new user .
 
 
 app.post('/users/login', async (req, res) => {
@@ -45,9 +89,14 @@ app.post('/users/login', async (req, res) => {
             if (result.length > 0) {
                 const validpass = await bcrypt.compare(password, result[0].password);                
                 if (validpass) {
-                    const token = jwt.sign({username: username}, process.env.ACCESS_TOKEN_SECRET);
-                    console.log(token);
-                    res.status(201).send({token: token});
+                    const user ={
+                        username : result[0].username ,
+                        password : result[0].password ,
+                        role : result[0].role,
+                    }
+                    const token = generateAccessToken(user);
+                    // console.log(token);
+                    res.status(201).send({status : "Succesfully Logged in ",token: token});
                 } else {
                     res.status(400).send('Invalid Password');
                 }
@@ -60,51 +109,67 @@ app.post('/users/login', async (req, res) => {
         } 
     }
     );
-}); // Authentication that generate JWT token which will be used in user authentication
+}); // Authentication that generate JWT token which will be used in user authentication.
 
 
-
-app.post('/addtask', (req, res) => {
-    const id = req.body.id;
-    const title = req.body.title;
-    const description = req.body.description;
-    const status = req.body.status;
-    const user_id = req.body.user_id;
-    const sqlInsert = "INSERT INTO tasks VALUES ("+`${id}`+" ,'"+title+"','"+description+"','"+status+"' ,'"+`${user_id}`+"');";
-    console.log(sqlInsert) ;
-    connection.query(sqlInsert, (err, result) => {
-        res.send(result);
+app.post('/tasks/addtask', authenticateToken, (req, res) => {
+    const username = req.user.username;
+    let sqlSelect = "SELECT * FROM users WHERE username = '" + `${username}` + "';";
+    connection.query(sqlSelect, (err, result) => {
+        const userid = result[0].userid;
+        sqlSelect = "SELECT * FROM tasks WHERE userid = " + `${result[0].userid}` + ";";
+        connection.query(sqlSelect, (err, result) => {
+            const id = result.length + 1;
+            const title = req.body.title;
+            const description = req.body.description;
+            const status = req.body.status;
+            const sqlInsert = "INSERT INTO tasks VALUES (" + `${id}` + ", " + `${userid}` + ",'" + title + "','" + description + "','" + status + "');";
+            connection.query(sqlInsert, (err, result) => {
+                res.send(result);
+            });
+        });
     });
-}); // Create a new task
+}); // Create a new task .
 
-app.delete('/tasks/:id', (req, res) => {
+
+app.delete('/users/tasks/:id', authenticateToken, (req, res) => {
     const id = req.params.id;
-    const sqlDelete = "DELETE FROM tasks WHERE id = "+`${id}`+";"
-    console.log(sqlDelete) ;
-    connection.query(sqlDelete, (err, result) => {
-        res.send(result);
+    const username = req.user.username;
+    let sqlSelect = "SELECT * FROM users WHERE username = '" + username + "';";
+    connection.query(sqlSelect, async (err, result) => {                  
+        let sqlDelete = "DELETE FROM tasks WHERE userid = " + `${result[0].userid}` + " &&  id = "+ `${id}` +";";
+        connection.query(sqlDelete,(err,result)=>{
+            res.send(result);
+        });
     });
-}); // Delete a task  
+}); // Delete a specific task using task id .
 
-app.get('/tasks/:u_id', (req, res) => {
-    const u_id = req.params.u_id;
-    const sqlSelect = "SELECT * FROM `tasks` WHERE id = "+`${u_id}`+";";
-    console.log(sqlSelect);
+
+app.get('/users/tasks/:id', authenticateToken, (req, res) => {
+    const username = req.user.username;
+    const id = req.params.id;
+    let sqlSelect = "SELECT * FROM users WHERE username = '" + `${username}` + "';";
     connection.query(sqlSelect, (err, result) => {
-        res.send(result);
+        sqlSelect = "SELECT * FROM tasks WHERE userid = " + `${result[0].userid}` + " && id = "+`${id}`+" ;";
+        connection.query(sqlSelect, (err, ut_tasks) => {
+            res.send(ut_tasks);
+        })
     });
-}); // Get the specific task using task id
+}); // Get the specific task using task id .
 
 
-
-
-app.get('/tasks', (req, res) => {
-    const sqlSelect = "SELECT * FROM `tasks` ";
-    console.log(sqlSelect);
-    connection.query(sqlSelect, (err, result) => {
-        res.send(result);
-    })
-}); // Get all tasks
+app.get('/tasks',authenticateToken, (req, res) => {
+    if (req.user.role === "admin") {
+        const sqlSelect = "SELECT * FROM tasks ;";
+        const r = null;
+        connection.query(sqlSelect, (err, result) => {            
+            res.send(result);
+        });
+    }
+    else {
+        res.send("Only Admin can see all the tasks");
+    }    
+}); // Get all tasks If the user is admin .
 
 
 const port = process.env.PORT || 3000;
