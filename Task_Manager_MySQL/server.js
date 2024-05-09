@@ -39,7 +39,7 @@ app.get('/users',authenticateToken , (req, res) => {
     }
 }); //Get all the user profile  if user role is admin .
 
-app.get('/user/profile', authenticateToken, (req, res) => {
+app.get('/user/npm', authenticateToken, (req, res) => {
     const username = req.user.username;
     const selectsql = "SELECT * FROM users WHERE username = '" + username + "';";
     connection.query(selectsql, (err, result) => {
@@ -186,20 +186,44 @@ app.get('/users/tasks/:id', authenticateToken, (req, res) => {
     let sqlSelect = "SELECT * FROM users WHERE username = '" + `${username}` + "';";
     connection.query(sqlSelect, (err, result) => {
         sqlSelect = "SELECT * FROM tasks WHERE userid = " + `${result[0].userid}` + " && id = "+`${id}`+" ;";
-        connection.query(sqlSelect, (err, ut_tasks) => {
-            res.send(ut_tasks);
+        connection.query(sqlSelect, (err, usertasks) => {
+            res.send(usertasks);
         })
     });
 }); // Get the specific task using task id .
+
+app.get('/users/tasks/sortbystatus', authenticateToken, (req, res) => {
+    const username = req.user.username;
+    let sqlSelect = "SELECT * FROM users WHERE username = '" + `${username}` + "';";
+    connection.query(sqlSelect, (err, result) => {
+        let sqlSelects = "SELECT * FROM tasks WHERE userid = " + `${result[0].userid}` + " ORDER BY status ASC ;";
+        connection.query(sqlSelects, (err, usertasks) => {
+            res.send(usertasks);
+        })
+    });
+}); // Get all the tasks of a user sorted by status 
+
+
+app.get('/users/tasks/sortbyid', authenticateToken, (req, res) => {
+    const username = req.user.username;
+    let sqlSelect = "SELECT * FROM users WHERE username = '" + `${username}` + "';";
+    connection.query(sqlSelect, (err, result) => {
+        sqlSelect = "SELECT * FROM tasks WHERE userid = "+ `${result[0].userid}` +" ORDER BY id ASC;";        
+        connection.query(sqlSelect, (err, usertasks) => {
+            usertasks.sort((a, b) => a.id - b.id);
+            res.send(usertasks);
+        })
+    });  
+}); // Get all the tasks of a user sorted by id
 
 
 app.get('/users/tasks', authenticateToken, (req, res) => {
     const username = req.user.username;
     let sqlSelect = "SELECT * FROM users WHERE username = '" + `${username}` + "';";
     connection.query(sqlSelect, (err, result) => {
-        sqlSelect = "SELECT * FROM tasks WHERE userid = " + `${result[0].userid}` + ";";
-        connection.query(sqlSelect, (err, u_tasks) => {
-            res.send(u_tasks);
+        sqlSelect = "SELECT * FROM tasks WHERE userid = " + `${result[0].userid}` + " ;";
+        connection.query(sqlSelect, (err, usertasks) => {
+            res.send(usertasks);
         })
     });
 }); // Get all the tasks of a user .
@@ -215,7 +239,7 @@ app.get('/tasks',authenticateToken, (req, res) => {
         });
     }
     else {
-        res.send("Only Admin can see all the tasks");
+        res.send("Only Admin can see all the users tasks! ");
     }    
 }); // Get all tasks of all user If the user role is admin .
 
