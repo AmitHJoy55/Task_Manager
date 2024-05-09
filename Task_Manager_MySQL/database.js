@@ -37,7 +37,7 @@ connection.query(createUserTable, (err) => {
 
 const createTasksTable = `
 CREATE TABLE IF NOT EXISTS tasks (
-    id INT UNIQUE,
+    id INT ,
     userid INT,
     title VARCHAR(255) ,
     description VARCHAR(300),

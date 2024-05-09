@@ -131,6 +131,40 @@ app.post('/tasks/addtask', authenticateToken, (req, res) => {
     });
 }); // Create a new task .
 
+app.patch('/tasks/updatetask/:id', authenticateToken, (req, res) => {
+    const n_title = req.body.title;
+    const n_description = req.body.description;
+    const n_status = req.body.status;
+    const id = req.params.id;
+    if(n_title === null && n_description === null && n_status === null){
+        res.send("invalid update");
+        return;
+    }
+    const username = req.user.username;
+    let sqlSelect = "SELECT * FROM users WHERE username = '" + `${username}` + "';";
+    connection.query(sqlSelect, (err, result) => {
+        const userid = result[0].userid;
+        let updateSql;
+        if(n_title!=null){
+            updateSql = "UPDATE tasks SET title = '"+n_title+"' WHERE userid = "+`${userid}`+" &&  id = "+`${id}`+" ;"
+            connection.query(updateSql, (err, result) => { })
+        }//updating title
+        if(n_description!=null){
+            updateSql = "UPDATE tasks SET description = '"+n_description+"' WHERE userid = "+`${userid}`+" &&  id = "+`${id}`+" ;"
+            connection.query(updateSql, (err, result) => { })
+        }//updating description
+        if(n_status!=null){
+            updateSql = "UPDATE tasks SET status = '"+n_status+"' WHERE userid = "+`${userid}`+" &&  id = "+`${id}`+" ;"
+            connection.query(updateSql, (err, result) => { })
+        } //updating status
+        const selectsql = "SELECT * FROM tasks WHERE userid = "+`${userid}`+" &&  id = "+`${id}`+" ;"
+            connection.query(selectsql, (err, result) => {
+                res.send(result);
+            })
+    })
+
+}); //Updated a task property .
+
 
 app.delete('/users/tasks/:id', authenticateToken, (req, res) => {
     const id = req.params.id;
@@ -143,6 +177,7 @@ app.delete('/users/tasks/:id', authenticateToken, (req, res) => {
         });
     });
 }); // Delete a specific task using task id .
+
 
 
 app.get('/users/tasks/:id', authenticateToken, (req, res) => {
@@ -158,6 +193,19 @@ app.get('/users/tasks/:id', authenticateToken, (req, res) => {
 }); // Get the specific task using task id .
 
 
+app.get('/users/tasks', authenticateToken, (req, res) => {
+    const username = req.user.username;
+    let sqlSelect = "SELECT * FROM users WHERE username = '" + `${username}` + "';";
+    connection.query(sqlSelect, (err, result) => {
+        sqlSelect = "SELECT * FROM tasks WHERE userid = " + `${result[0].userid}` + ";";
+        connection.query(sqlSelect, (err, u_tasks) => {
+            res.send(u_tasks);
+        })
+    });
+}); // Get all the tasks of a user .
+
+
+
 app.get('/tasks',authenticateToken, (req, res) => {
     if (req.user.role === "admin") {
         const sqlSelect = "SELECT * FROM tasks ;";
@@ -169,7 +217,7 @@ app.get('/tasks',authenticateToken, (req, res) => {
     else {
         res.send("Only Admin can see all the tasks");
     }    
-}); // Get all tasks If the user is admin .
+}); // Get all tasks of all user If the user role is admin .
 
 
 const port = process.env.PORT || 3000;
